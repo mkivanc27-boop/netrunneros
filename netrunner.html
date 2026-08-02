@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>NETRUNNER // Global Network v4.0</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; background:#000; font-family:'Consolas','Courier New',monospace; overflow:hidden; }
+  #crt { position:relative; height:100vh; width:100vw; background:#020a02; padding:14px 20px; color:#33ff5a; font-size:14px; line-height:1.42; display:flex; flex-direction:column; }
+  #crt::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 1px, rgba(0,0,0,0.18) 2px, rgba(0,0,0,0.18) 3px); pointer-events:none; z-index:3; }
+  #crt::after { content:""; position:absolute; inset:0; box-shadow: inset 0 0 90px rgba(0,0,0,0.85); pointer-events:none; z-index:4; animation:flicker 6s infinite; will-change:opacity; }
+  @keyframes flicker { 0%,96%,100%{opacity:1;} 97%{opacity:0.92;} 98%{opacity:1;} }
+  #topbar { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; border-bottom:1px solid #1a5c2a; padding-bottom:7px; margin-bottom:9px; text-shadow:0 0 6px #33ff5a; font-size:11.5px; letter-spacing:0.5px; flex-shrink:0; }
+  #output { flex:1; overflow-y:auto; white-space:pre-wrap; word-break:break-word; text-shadow:0 0 5px rgba(51,255,90,0.55); scrollbar-width:thin; scrollbar-color:#1a5c2a #020a02; }
+  #output::-webkit-scrollbar{width:8px;} #output::-webkit-scrollbar-thumb{background:#1a5c2a;}
+  .line{margin:0 0 2px 0;}
+  .dim{color:#1f8a3a;} .warn{color:#ffcc33;text-shadow:0 0 6px rgba(255,204,51,0.6);}
+  .bad{color:#ff4444;text-shadow:0 0 6px rgba(255,68,68,0.7);}
+  .info{color:#57e6ff;text-shadow:0 0 6px rgba(87,230,255,0.6);}
+  .hi{color:#baffce;} .gold{color:#ffd76a;text-shadow:0 0 6px rgba(255,215,106,0.6);}
+  #inputRow{display:flex;align-items:center;border-top:1px solid #1a5c2a;padding-top:7px;margin-top:7px;flex-shrink:0;}
+  #prompt{white-space:nowrap;margin-right:6px;text-shadow:0 0 6px #33ff5a;}
+  #cmdInput{flex:1;background:transparent;border:none;outline:none;color:#baffce;font-family:inherit;font-size:14px;text-shadow:0 0 6px rgba(186,255,206,0.7);caret-color:#33ff5a;}
+  .bar{width:80px;height:8px;border:1px solid #1a5c2a;position:relative;display:inline-block;vertical-align:middle;margin-left:5px;}
+  .bar>div{height:100%;background:#33ff5a;box-shadow:0 0 6px #33ff5a;}
+  .bar.trace>div{background:#ff4444;box-shadow:0 0 6px #ff4444;}
+  #macroBtn{cursor:pointer;text-decoration:underline;text-shadow:0 0 6px #33ff5a;}
+  #macroBtn:hover{color:#baffce;}
+  #macroOverlay{display:none;position:fixed;inset:0;background:rgba(0,10,2,0.88);z-index:50;align-items:center;justify-content:center;}
+  #macroOverlay.show{display:flex;}
+  #macroPanel{width:min(640px,92vw);max-height:86vh;overflow-y:auto;background:#020a02;border:1px solid #1a5c2a;box-shadow:0 0 30px rgba(51,255,90,0.25),inset 0 0 40px rgba(0,0,0,0.6);padding:16px 18px;color:#33ff5a;font-family:inherit;}
+  #macroPanel::-webkit-scrollbar{width:8px;} #macroPanel::-webkit-scrollbar-thumb{background:#1a5c2a;}
+  .macroPanelHeader{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1a5c2a;padding-bottom:8px;margin-bottom:10px;}
+  .macroPanelHeader h2{margin:0;font-size:14px;letter-spacing:1px;text-shadow:0 0 6px #33ff5a;}
+  .macroCloseBtn{cursor:pointer;color:#ff4444;text-shadow:0 0 6px rgba(255,68,68,0.7);font-size:12px;}
+  .macroCloseBtn:hover{color:#ff8888;}
+  .macroAddBtn{display:inline-block;cursor:pointer;border:1px solid #1a5c2a;padding:5px 10px;margin-bottom:12px;font-size:12px;color:#baffce;}
+  .macroAddBtn:hover{background:rgba(51,255,90,0.08);border-color:#33ff5a;}
+  .macroForm{border:1px solid #1a5c2a;padding:10px;margin-bottom:14px;display:none;}
+  .macroForm.show{display:block;}
+  .macroForm label{display:block;font-size:11px;color:#1f8a3a;margin:8px 0 3px;}
+  .macroForm input[type=text]{width:100%;background:#03120a;border:1px solid #1a5c2a;color:#baffce;font-family:inherit;font-size:13px;padding:6px 8px;outline:none;}
+  .macroForm input[type=text]:focus{border-color:#33ff5a;}
+  .catGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:6px;}
+  .catBtn{display:flex;flex-direction:column;align-items:center;gap:3px;border:1px solid #1a5c2a;padding:6px 2px;cursor:pointer;font-size:9.5px;color:#8fd6a5;text-align:center;}
+  .catBtn:hover{border-color:#33ff5a;}
+  .catBtn.sel{border-color:#33ff5a;background:rgba(51,255,90,0.1);color:#baffce;}
+  .macroFormActions{display:flex;gap:8px;margin-top:12px;}
+  .macroFormActions button{background:transparent;border:1px solid #1a5c2a;color:#baffce;font-family:inherit;padding:6px 12px;cursor:pointer;font-size:12px;}
+  .macroFormActions button:hover{border-color:#33ff5a;}
+  .catSection{margin-bottom:14px;}
+  .catSectionHead{display:flex;align-items:center;gap:8px;border-bottom:1px dashed #1a5c2a;padding-bottom:4px;margin-bottom:6px;}
+  .catSectionHead span{font-size:11.5px;letter-spacing:0.5px;color:#8fd6a5;}
+  .macroChips{display:flex;flex-wrap:wrap;gap:6px;}
+  .macroChip{display:flex;align-items:center;gap:6px;border:1px solid #1a5c2a;padding:4px 4px 4px 8px;font-size:12px;color:#baffce;}
+  .macroChip .mName{cursor:pointer;}
+  .macroChip .mName:hover{text-shadow:0 0 6px #33ff5a;}
+  .macroChip button{background:transparent;border:none;color:#1f8a3a;cursor:pointer;font-size:12px;padding:2px 4px;}
+  .macroChip .mRun:hover{color:#33ff5a;}
+  .macroChip .mEdit:hover{color:#57e6ff;}
+  .macroChip .mDel:hover{color:#ff4444;}
+  .emptyCat{font-size:11px;color:#1f8a3a;font-style:italic;}
+  #rankTop{color:#ffd76a;text-shadow:0 0 6px rgba(255,215,106,0.5);}
+  .achToast{position:fixed;top:16px;right:16px;z-index:60;background:#020a02;border:1px solid #ffd76a;box-shadow:0 0 20px rgba(255,215,106,0.35);padding:10px 14px;max-width:260px;font-family:inherit;animation:achSlide 0.35s ease;}
+  .achToastHead{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-weight:bold;letter-spacing:0.5px;font-size:11.5px;}
+  .achToastMsg{font-size:12px;color:#baffce;}
+  @keyframes achSlide{from{transform:translateX(30px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+</style>
+</head>
+<body>
+<div id="crt">
+  <div id="topbar">
+    <div>NETRUNNER OS <span class="dim">// global build 4.0</span></div>
+    <div id="locTop" class="dim">konum: -</div>
+    <div id="facTop" class="dim">fraksiyon: yok</div>
+    <div id="rankTop" class="dim">rütbe: Script Kiddie</div>
+    <div>KREDİ:<span id="creditsTop" class="hi">0</span> İZ<span class="bar trace"><div id="traceBarTop" style="width:0%"></div></span></div>
+    <div id="macroBtn">[MAKROLAR]</div>
+  </div>
+  <div id="output"></div>
+  <div id="inputRow">
+    <span id="prompt">guest@home:~$</span>
+    <input id="cmdInput" autocomplete="off" spellcheck="false" autofocus />
+  </div>
+</div>
+
+<div id="macroOverlay">
+  <div id="macroPanel">
+    <div class="macroPanelHeader">
+      <h2>MAKRO KOMUTLARI</h2>
+      <span class="macroCloseBtn" id="macroCloseBtn">[KAPAT ✕]</span>
+    </div>
+    <div class="macroAddBtn" id="macroAddBtn">+ Yeni Makro Ekle</div>
+    <div class="macroForm" id="macroForm">
+      <label>1. Makro adı ne olacak?</label>
+      <input type="text" id="macroNameInput" placeholder="örn: Hızlı Tarama" maxlength="30">
+      <label>2. Basınca hangi komut çalışacak?</label>
+      <input type="text" id="macroCmdInput" placeholder="örn: scan   veya   crack 22" maxlength="80">
+      <label>3. Kategori seç</label>
+      <div class="catGrid" id="macroCatGrid"></div>
+      <div class="macroFormActions">
+        <button id="macroSaveBtn" type="button">Kaydet</button>
+        <button id="macroCancelBtn" type="button">Vazgeç</button>
+      </div>
+    </div>
+    <div id="macroListContainer"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const out = document.getElementById('output');
+  const input = document.getElementById('cmdInput');
+  const promptEl = document.getElementById('prompt');
+  const creditsTop = document.getElementById('creditsTop');
+  const traceBarTop = document.getElementById('traceBarTop');
+  const locTop = document.getElementById('locTop');
+  const facTop = document.getElementById('facTop');
+
+  const MAX_OUTPUT_LINES = 400;
+  function trimOutput(){ while (out.children.length > MAX_OUTPUT_LINES) out.removeChild(out.firstChild); }
+  function print(t,cls){ const d=document.createElement('div'); d.className='line'+(cls?' '+cls:''); d.textContent=t; out.appendChild(d); trimOutput(); out.scrollTop=out.scrollHeight; }
+  function printRaw(h,cls){ const d=document.createElement('div'); d.className='line'+(cls?' '+cls:''); d.innerHTML=h; out.appendChild(d); trimOutput(); out.scrollTop=out.scrollHeight; }
+  function blank(){ print(''); }
+  function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ---------- PRNG (deterministic, fixed world) ----------
+  function hashStr(str){ let h=1779033703^str.length; for(let i=0;i<str.length;i++){ h=Math.imul(h^str.charCodeAt(i),3432918353); h=(h<<13)|(h>>>19);} return function(){ h=Math.imul(h^(h>>>16),2246822507); h=Math.imul(h^(h>>>13),3266489909); h^=h>>>16; return h>>>0; }; }
+  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function seededRand(seedStr){ const hf=hashStr(seedStr); return mulberry32(hf()); }
+  function randInt(rng,min,max){ return Math.floor(rng()*(max-min+1))+min; }
+  function pick(rng,arr){ return arr[Math.floor(rng()*arr.length)]; }
+  function shuffled(rng,arr){ return [...arr].sort(()=>rng()-0.5); }
+  function slugify(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+  // ---------- Name banks ----------
+  const orgNames = ['ORION','VELOCORE','HALCYON','BLACKROOT','SILENTLINE','MERIDIAN','GRIDFALL','ASHVALE','NEXORA','DUSKNET','FERROX','CINDERA','OBSIDIAN','TALON','PALISADE','KRONOS','VANTAGE','IRONVEIL','SOLSTICE','REDLINE','NORTHSTAR','GLASSHOUSE','EMBERCORE','WRAITHNET','CASCADIA'];
+  const orgSuffix = ['Dynamics','Systems','Bio-Labs','Holdings','Logistics','Networks','Financial','Defense','Robotics','Data Trust','Energy','Telecom','Group','Industries','Aerospace','Analytics','Ventures','Pharma','Shipping','Media'];
+  const sectors = ['Finans','Teknoloji','Sağlık','Enerji','Devlet','Medya','Lojistik','Savunma','Telekom','Perakende'];
+  const nodeTypePool = ['HR','FINANCE','SERVER-ROOM','MANAGEMENT','R&D','SECURITY-OPS','ARCHIVE'];
+  const nodeFiles = {
+    'HR': ['employee_records.csv','payroll_2025.dat','contracts_signed.pdf','hr_complaints.log'],
+    'FINANCE': ['general_ledger.xlsx','tax_filings.dat','wire_transfers.log','budget_forecast.xls'],
+    'SERVER-ROOM': ['backup_full.sql','source_dump.zip','infra_map.cfg','db_snapshot.bak'],
+    'MANAGEMENT': ['strategy_plan.doc','board_minutes.txt','merger_notes.dat','exec_emails.pst'],
+    'R&D': ['prototype_specs.dat','patent_draft.doc','lab_results.csv','test_data.raw'],
+    'SECURITY-OPS': ['incident_log.txt','access_keys.env','camera_feed.dat','audit_trail.log'],
+    'ARCHIVE': ['old_records.zip','legacy_backup.dat','archived_mail.pst','retired_project.doc']
+  };
+  const services = [21,22,80,443,1433,3306,3389,8080,8443];
+  const serviceName = {21:'FTP',22:'SSH',80:'HTTP',443:'HTTPS',1433:'MSSQL',3306:'MYSQL',3389:'RDP',8080:'PROXY',8443:'ADMIN-PANEL'};
+  const codeChars = 'ABCDEF0123456789';
+  const regionNames = ['Kuzey Amerika','Güney Amerika','Batı Avrupa','Doğu Avrupa','Asya-Pasifik','Ortadoğu & Afrika'];
+  const cityBank = {
+    'Kuzey Amerika': ['Neo Vancouver','Redwood Bay','Steel Harbor'],
+    'Güney Amerika': ['Porto Nuvem','Rio Sombra','Andes Cruz'],
+    'Batı Avrupa': ['Nordhaven','Lyonelle','Aldergate'],
+    'Doğu Avrupa': ['Kraskovia','Veldrin','Ostrograd'],
+    'Asya-Pasifik': ['Kyotana','Shenrong','Mumbai Prime'],
+    'Ortadoğu & Afrika': ['Al-Zahra','Cairo Nexus','Lagos Circuit']
+  };
+  const proxyCityNames = ['Reykjavik Relay','Nairobi Hop','Singapore Bounce','Zurich Node','Vladivostok Link','Casablanca Gate','Auckland Echo','Bogota Switch','Helsinki Ring','Manila Cache'];
+  const FACTIONS = [
+    {id:'crimson', name:'Crimson Circuit', desc:'Kaos ve yıkım felsefesi. Görev ödülleri +%15.', rival:'whitehat'},
+    {id:'whitehat', name:'Whitehat Underground', desc:'Etik hackerlar. Breach süreleri +2sn kolaylık.', rival:'crimson'},
+    {id:'syndicate', name:'Syndicate 404', desc:'Kâr her şeydir. Karaborsa satış fiyatları +%20.', rival:'ghost'},
+    {id:'ghost', name:'Ghost Protocol', desc:'Anonimlik ustaları. Proxy zinciri etkisi +%15.', rival:'syndicate'}
+  ];
+  const REP_TIERS = [[0,'Acemi'],[100,'Tanınan'],[300,'Güvenilir'],[700,'Efsane']];
+
+  // ---------- World generation (fixed, deterministic) ----------
+  let WORLD = null;
+  let HOSTMAP = null; // hostname -> {region, city, company, node}
+
+  function buildWorld(){
+    const rng = seededRand('netrunner-fixed-world-v4');
+    const regions = [];
+    const usedCompanyNames = new Set();
+    for (const rname of regionNames){
+      const cities = [];
+      const cityList = cityBank[rname];
+      cityList.forEach((cname, cityIdx)=>{
+        const tier = cityIdx+1;
+        const companyCount = randInt(rng, 6, 9);
+        const companies = [];
+        for (let i=0;i<companyCount;i++){
+          let full, tries=0;
+          do {
+            full = pick(rng, orgNames) + ' ' + pick(rng, orgSuffix);
+            tries++;
+          } while (usedCompanyNames.has(full) && tries<20);
+          usedCompanyNames.add(full);
+          const slug = slugify(full) + '-' + slugify(cname).slice(0,3);
+          const sector = pick(rng, sectors);
+          const security = Math.max(1, Math.min(10, tier*2 + randInt(rng,1,4)));
+          const nodeTypes = shuffled(rng, nodeTypePool).slice(0, randInt(rng,3,4));
+          const nodes = [];
+          // gateway node
+          nodes.push(makeNode(rng, 'GATEWAY', slug, security, true));
+          nodeTypes.forEach(nt=> nodes.push(makeNode(rng, nt, slug, security, false)));
+          companies.push({ name: full, slug, sector, security, tier, nodes });
+        }
+        cities.push({ name: cname, tier, companies });
+      });
+      regions.push({ name: rname, cities });
+    }
+    return { regions };
+  }
+
+  function makeNode(rng, type, companySlug, companySecurity, isGateway){
+    const hostname = `${type.toLowerCase().replace('&','n')}.${companySlug}.corp`;
+    if (isGateway){
+      return { type, hostname, security: companySecurity, isGateway: true, firewallPort: 9999, files: [] };
+    }
+    const security = Math.max(1, Math.min(10, companySecurity + randInt(rng,-1,2)));
+    const portCount = randInt(rng, 2, 4);
+    const ports = shuffled(rng, services).slice(0, portCount).map(p=>({port:p, service:serviceName[p]}));
+    const bank = nodeFiles[type] || nodeFiles['ARCHIVE'];
+    const fileCount = randInt(rng, 2, Math.min(bank.length, 4));
+    const names = shuffled(rng, bank).slice(0, fileCount);
+    const files = names.map(fn=>{
+      const gatePort = pick(rng, ports).port;
+      const value = randInt(rng,50,90) * security + randInt(rng,0,250);
+      const isVault = rng() < 0.25;
+      return { name: fn, gatePort, value, isVault, isPassFile: fn.includes('keys') || fn.includes('access') };
+    });
+    return { type, hostname, security, isGateway:false, ports, files };
+  }
+
+  function indexWorld(){
+    HOSTMAP = {};
+    WORLD.regions.forEach(r=> r.cities.forEach(c=> c.companies.forEach(co=> co.nodes.forEach(n=>{
+      HOSTMAP[n.hostname] = { region:r, city:c, company:co, node:n };
+    }))));
+  }
+
+  function findHost(hostname){ return HOSTMAP[hostname] || null; }
+  function findCompanyByName(name){
+    const target = name.toLowerCase();
+    for (const r of WORLD.regions) for (const c of r.cities) for (const co of c.companies)
+      if (co.name.toLowerCase().includes(target) || co.slug.includes(slugify(name))) return {region:r, city:c, company:co};
+    return null;
+  }
+  function findCityByName(name){
+    const target = name.toLowerCase();
+    for (const r of WORLD.regions) for (const c of r.cities) if (c.name.toLowerCase().includes(target)) return {region:r, city:c};
+    return null;
+  }
+  function findRegionByName(name){
+    const target = name.toLowerCase();
+    return WORLD.regions.find(r=> r.name.toLowerCase().includes(target)) || null;
+  }
+
+  // ---------- Player state ----------
+  let state = null;
+  const DEFAULT_STATE = () => ({
+    credits: 500,
+    crackerLvl: 1,
+    decryptors: 0,
+    fenceLvl: 0,
+    ownedProxies: [],
+    faction: null,
+    rep: { crimson:0, whitehat:0, syndicate:0, ghost:0 },
+    progress: {}, // hostname -> {cracked:[ports], downloaded:[names], alerted:bool}
+    inventory: [], // {name, value, from}
+    missions: [],
+    activeMission: null,
+    location: { region: null, city: null },
+    history: [],
+    macros: [],
+    macroSeq: 1,
+    totalEarned: 0,
+    achievements: {}
+  });
+
+  let session = {
+    connectedIp: null,
+    trace: 0,
+    pendingCrack: null,
+    pendingFirewall: null,
+    pendingRoute: null,
+    pendingInject: null,
+    passReduction: false,
+    routeChain: []
+  };
+
+  function getProgress(hostname){
+    if (!state.progress[hostname]) state.progress[hostname] = { cracked: [], downloaded: [], alerted:false };
+    return state.progress[hostname];
+  }
+
+  function gatewayHostFor(companySlug){ return `gateway.${companySlug}.corp`; }
+  function isGatewayBreached(companySlug){
+    const gh = gatewayHostFor(companySlug);
+    const prog = state.progress[gh];
+    return !!(prog && prog.cracked.includes(9999));
+  }
+
+  // ---------- Persistence (Claude artifact window.storage OR standalone localStorage) ----------
+  const SAVE_KEY = 'netrunner-save-v4';
+  const hasArtifactStorage = () => (typeof window.storage !== 'undefined' && typeof window.storage.set === 'function');
+  async function save(){
+    const data = JSON.stringify(state);
+    try{
+      if (hasArtifactStorage()) await window.storage.set(SAVE_KEY, data, false);
+      else localStorage.setItem(SAVE_KEY, data);
+    }catch(e){
+      try{ localStorage.setItem(SAVE_KEY, data); }catch(e2){}
+    }
+  }
+  async function load(){
+    try{
+      if (hasArtifactStorage()){
+        const res = await window.storage.get(SAVE_KEY, false);
+        state = (res && res.value) ? JSON.parse(res.value) : DEFAULT_STATE();
+      } else {
+        const raw = localStorage.getItem(SAVE_KEY);
+        state = raw ? JSON.parse(raw) : DEFAULT_STATE();
+      }
+    }catch(e){
+      try{
+        const raw = localStorage.getItem(SAVE_KEY);
+        state = raw ? JSON.parse(raw) : DEFAULT_STATE();
+      }catch(e2){ state = DEFAULT_STATE(); }
+    }
+    // migrate missing fields
+    const def = DEFAULT_STATE();
+    for (const k in def) if (!(k in state)) state[k] = def[k];
+  }
+
+  // ---------- UI ----------
+  function repTier(v){ let t=REP_TIERS[0][1]; for (const [th,name] of REP_TIERS) if (v>=th) t=name; return t; }
+  function updateTopbar(){
+    creditsTop.textContent = state.credits;
+    traceBarTop.style.width = Math.min(100, session.trace) + '%';
+    locTop.textContent = 'konum: ' + (state.location.city ? `${state.location.city} / ${state.location.region}` : '(dünya haritasında değil)');
+    const f = FACTIONS.find(x=>x.id===state.faction);
+    facTop.textContent = 'fraksiyon: ' + (f ? f.name : 'yok');
+    const rankEl = document.getElementById('rankTop');
+    if (rankEl) rankEl.textContent = 'rütbe: ' + rankTitle(state.totalEarned||0);
+  }
+  function updatePrompt(){ promptEl.textContent = session.connectedIp ? `root@${session.connectedIp}:~$` : 'guest@home:~$'; }
+
+  function traceMultiplier(){
+    const base = Math.pow(0.85, session.routeChain.length);
+    const ghostBonus = state.faction==='ghost' ? 0.85 : 1;
+    return Math.max(0.3, base*ghostBonus);
+  }
+  function traceGain(amount){
+    session.trace = Math.max(0, session.trace + amount*traceMultiplier());
+    updateTopbar();
+    if (session.trace >= 100) forceTrace();
+  }
+  function forceTrace(){
+    const info = findHost(session.connectedIp);
+    if (info) getProgress(session.connectedIp).alerted = true;
+    const penalty = Math.floor(state.credits*0.2);
+    state.credits -= penalty;
+    blank();
+    print('!!! IDS ALARM TETİKLENDİ !!!','bad');
+    print(`İz sürme %100'e ulaştı. Bağlantı zorla kesildi. -${penalty} kredi ceza.`,'bad');
+    print('Bu ağ bir süreliğine seni işaretledi.','warn');
+    session.connectedIp = null; session.trace = 0; session.pendingCrack=null; session.pendingFirewall=null;
+    updatePrompt(); updateTopbar(); save();
+  }
+
+  // ---------- Help ----------
+  function cmdHelp(){
+    print('=== DÜNYA / NAVİGASYON ===','info');
+    print('  worldmap                 - bölgeleri listele');
+    print('  region <ad>              - bölgeye git, şehirleri gör');
+    print('  city <ad>                - şehre gir, şirketleri gör');
+    print('  targets                  - bulunduğun şehirdeki şirketler');
+    print('  netmap <şirket>          - şirketin ağ yapısını göster');
+    print('  whereami                 - konumunu göster');
+    print('=== BAĞLANTI ===','info');
+    print('  scan <hostname>          - hedefi analiz et');
+    print('  connect <hostname>       - bağlan (gateway her zaman bağlanılabilir)');
+    print('  pivot <hostname>         - kırılmış gateway üzerinden iç ağa geç');
+    print('  ports                    - bağlı sunucunun portları');
+    print('  disconnect               - bağlantıyı kes');
+    print('=== İHLAL ===','info');
+    print('  crack <port>             - standart port kırma (dizi kopyalama)');
+    print('  firewall <port>          - gateway çoklu-aşama breach');
+    print('  inject <token1> <token2> ...  - vault dosyası için syntax bulmacası');
+    print('=== DOSYA ===','info');
+    print('  ls                       - erişilebilir dosyalar');
+    print('  cat <dosya>              - dosyayı oku');
+    print('  download <dosya>         - dosyayı envantere al');
+    print('=== PROXY / GİZLİLİK ===','info');
+    print('  proxy list               - sahip olduğun proxy sunucular');
+    print('  route add <proxy>        - zincire proxy ekle (routing bulmacası)');
+    print('  route status / route clear');
+    print('=== KARABORSA ===','info');
+    print('  blackmarket              - ürünleri listele');
+    print('  buy <item>               - satın al');
+    print('  sell <dosya>             - envanterindeki veriyi sat');
+    print('=== FRAKSİYON ===','info');
+    print('  factions / join <ad> / rep');
+    print('=== GÖREV ===','info');
+    print('  missions / accept <id>');
+    print('=== DİĞER ===','info');
+    print('  stats / history / inventory / clear / whoami / ifconfig');
+    print('  basarimlar                - açtığın rozetleri ve rütbeni gör');
+    print('  Üstteki "[MAKROLAR]" menüsünden kendi kısayol komutlarını oluşturabilirsin.','dim');
+  }
+
+  function cmdWhoami(){ print('kullanıcı: guest  |  yetki: sınırsız (root elde edilmedi)','dim'); }
+  function cmdIfconfig(){ print('eth0: 10.0.0.7  proxy zinciri: '+session.routeChain.length+' hop aktif','dim'); }
+  function cmdWhereami(){
+    print(state.location.city ? `Şu an ${state.location.city}, ${state.location.region} bölgesindesin.` : 'Henüz bir bölgeye seyahat etmedin. "worldmap" ile başla.', 'dim');
+  }
+
+  // ---------- World navigation ----------
+  function cmdWorldmap(){
+    blank(); print('KÜRESEL AĞ HARİTASI','info');
+    WORLD.regions.forEach(r=>{
+      const compCount = r.cities.reduce((s,c)=>s+c.companies.length,0);
+      print(`  ${r.name.padEnd(22)} ${r.cities.length} şehir, ${compCount} kurumsal ağ`);
+    });
+    print('"region <ad>" ile bir bölgeye git.','dim');
+  }
+  function cmdRegion(arg){
+    if (!arg){ print('Kullanım: region <ad>','warn'); return; }
+    const r = findRegionByName(arg);
+    if (!r){ print('Bölge bulunamadı.','warn'); return; }
+    state.location.region = r.name; state.location.city = null;
+    blank(); print(`BÖLGE: ${r.name}`,'info');
+    r.cities.forEach(c=> print(`  ${c.name.padEnd(18)} tier ${c.tier}  (${c.companies.length} şirket)`));
+    print('"city <ad>" ile bir şehre gir.','dim');
+    updateTopbar(); save();
+  }
+  function cmdCity(arg){
+    if (!arg){ print('Kullanım: city <ad>','warn'); return; }
+    const found = findCityByName(arg);
+    if (!found){ print('Şehir bulunamadı.','warn'); return; }
+    state.location.region = found.region.name; state.location.city = found.city.name;
+    blank(); print(`ŞEHİR: ${found.city.name}  [${found.region.name}, tier ${found.city.tier}]`,'info');
+    found.city.companies.forEach(co=> print(`  ${co.name.padEnd(28)} sektör:${co.sector.padEnd(9)} güvenlik:${co.security}/10`));
+    print('"targets" ile tekrar listele, "netmap <şirket>" ile ağ yapısını gör.','dim');
+    updateTopbar(); save();
+  }
+  function cmdTargets(){
+    if (!state.location.city){ print('Önce bir şehre git: "city <ad>"','warn'); return; }
+    const found = findCityByName(state.location.city);
+    found.city.companies.forEach(co=> print(`  ${co.name.padEnd(28)} sektör:${co.sector.padEnd(9)} güvenlik:${co.security}/10`));
+  }
+  function cmdNetmap(arg){
+    if (!arg){ print('Kullanım: netmap <şirket adı>','warn'); return; }
+    const found = findCompanyByName(arg);
+    if (!found){ print('Şirket bulunamadı. "targets" ile şehirdeki şirketleri gör.','warn'); return; }
+    const co = found.company;
+    blank(); print(`AĞ HARİTASI: ${co.name}  [${co.sector}]  güvenlik:${co.security}/10`,'info');
+    const gwBreached = isGatewayBreached(co.slug);
+    co.nodes.forEach(n=>{
+      if (n.isGateway){ print(`  ${n.hostname.padEnd(34)} [GATEWAY]  ${gwBreached?'KIRILDI':'AKTİF'}`, gwBreached?'hi':'warn'); }
+      else if (gwBreached){ print(`  ${n.hostname.padEnd(34)} [${n.type}]`, 'dim'); }
+    });
+    if (!gwBreached) print("İç ağ şifreli. Önce gateway'i kır: connect + firewall <port>", 'dim');
+    if (!state.history.includes(co.slug)) state.history.push(co.slug);
+    save();
+  }
+
+  // ---------- Connection ----------
+  function cmdScan(arg){
+    if (!arg){
+      // discovery sweep: surface a few undiscovered hostnames, prefer current city
+      let pool = [];
+      if (state.location.city){
+        const found = findCityByName(state.location.city);
+        found.city.companies.forEach(co=> pool.push(co));
+      } else {
+        WORLD.regions.forEach(r=> r.cities.forEach(c=> c.companies.forEach(co=> pool.push(co))));
+      }
+      const sample = shuffled(Math.random, pool).slice(0,5);
+      blank(); print('Yakın ağ taraması...','dim');
+      sample.forEach(co=>{
+        const gw = co.nodes.find(n=>n.isGateway);
+        print(`  ${gw.hostname.padEnd(34)} [${co.sector}]  güvenlik:${co.security}/10`);
+      });
+      print('"scan <hostname>" ile detay, "worldmap" ile tüm dünyayı gez.','dim');
+      return;
+    }
+    const info = findHost(arg);
+    if (!info){ print('Hedef bulunamadı. Hostname yanlış olabilir ya da henüz keşfedilmedi.','warn'); return; }
+    const { company, node } = info;
+    blank(); print(`HEDEF: ${arg}  [${company.name} / ${node.type}]`,'info');
+    print(`Güvenlik: ${node.security}/10`, node.security>6?'warn':'dim');
+    if (node.isGateway){
+      print(`Port: 9999/FIREWALL  ${getProgress(arg).cracked.includes(9999)?'[KIRILDI]':'[AKTİF]'}`);
+    } else {
+      if (!isGatewayBreached(company.slug)){ print('Bu node bir gateway arkasında. Önce gateway kırılmalı.','warn'); return; }
+      const prog = getProgress(arg);
+      node.ports.forEach(p=> print(`  ${p.port}/tcp   ${p.service}   ${prog.cracked.includes(p.port)?'[KIRILDI]':'[KAPALI]'}`, prog.cracked.includes(p.port)?'hi':'dim'));
+    }
+  }
+
+  function cmdConnect(arg){
+    if (!arg){ print('Kullanım: connect <hostname>','warn'); return; }
+    const info = findHost(arg);
+    if (!info){ print('Hedef bulunamadı.','warn'); return; }
+    const { company, node } = info;
+    if (!node.isGateway && !isGatewayBreached(company.slug)){
+      print(`Erişim reddedildi: ${company.name} ağının çevre güvenliği hâlâ aktif. Önce gateway'i kır.`,'warn');
+      return;
+    }
+    const known = !!state.progress[arg];
+    session.connectedIp = arg; session.trace = known ? 0 : 12; session.passReduction = false;
+    if (!state.history.includes(arg)) state.history.push(arg);
+    updatePrompt(); updateTopbar();
+    blank(); print(`Bağlanılıyor: ${arg} ...`,'dim');
+    print(`Bağlantı kuruldu -> ${company.name} [${node.type}]`,'hi');
+    if (!known) print('İlk temas - başlangıç izi +12%.','warn');
+    save();
+  }
+
+  function cmdPivot(arg){
+    if (!session.connectedIp){ print('Bağlı değilsin.','warn'); return; }
+    const cur = findHost(session.connectedIp);
+    if (!cur){ print('Geçersiz bağlantı durumu.','bad'); return; }
+    if (!isGatewayBreached(cur.company.slug)){ print("Bu şirketin gateway'i hâlâ aktif, pivot yapılamaz.",'warn'); return; }
+    const target = findHost(arg);
+    if (!target || target.company.slug !== cur.company.slug){ print('Hedef aynı şirket ağında değil.','warn'); return; }
+    session.connectedIp = arg; session.trace += 3; updatePrompt(); updateTopbar();
+    print(`Pivot başarılı -> ${arg}`,'hi');
+    save();
+  }
+
+  function requireConnection(){
+    if (!session.connectedIp){ print('Bağlı değilsin. "connect <hostname>" kullan.','warn'); return null; }
+    return findHost(session.connectedIp);
+  }
+  function cmdPorts(){
+    const info = requireConnection(); if (!info) return;
+    const { node } = info;
+    const prog = getProgress(session.connectedIp);
+    if (node.isGateway){ print(`  9999/tcp  FIREWALL  ${prog.cracked.includes(9999)?'[KIRILDI]':'[AKTİF]'}`, prog.cracked.includes(9999)?'hi':'warn'); return; }
+    node.ports.forEach(p=> print(`  ${p.port}/tcp   ${p.service}   ${prog.cracked.includes(p.port)?'[KIRILDI]':'[KİLİTLİ]'}`, prog.cracked.includes(p.port)?'hi':'dim'));
+  }
+  function cmdDisconnect(){
+    if (!session.connectedIp){ print('Zaten bağlı değilsin.','dim'); return; }
+    print(`Bağlantı kesildi: ${session.connectedIp}`,'dim');
+    session.connectedIp=null; session.trace=0; session.pendingCrack=null; session.pendingFirewall=null;
+    updatePrompt(); updateTopbar();
+  }
+
+  // ---------- Breach: crack (standard) ----------
+  function genCode(len){ let c=''; for(let i=0;i<len;i++) c+=codeChars[Math.floor(Math.random()*codeChars.length)]; return c; }
+
+  function cmdCrack(arg){
+    const info = requireConnection(); if (!info) return;
+    const { node } = info;
+    if (node.isGateway){ print('Bu bir GATEWAY. "firewall <port>" kullan.','warn'); return; }
+    const port = parseInt(arg,10);
+    const p = node.ports.find(x=>x.port===port);
+    if (!p){ print('Bu port sunucuda açık değil.','warn'); return; }
+    const prog = getProgress(session.connectedIp);
+    if (prog.cracked.includes(port)){ print('Bu port zaten kırılmış.','dim'); return; }
+    const len = Math.min(16, 6+node.security);
+    let timeLimit = 20 - state.crackerLvl*2 - node.security*0.6 + (state.faction==='whitehat'?2:0) + (session.passReduction?4:0);
+    timeLimit = Math.max(6, Math.round(timeLimit));
+    const code = genCode(len);
+    session.pendingCrack = { port, code, deadline: Date.now()+timeLimit*1000 };
+    blank(); print(`BREACH — Port ${port}/${p.service}`,'warn');
+    print(`${timeLimit} saniye içinde aşağıdaki diziyi TAM olarak yaz:`,'info');
+    printRaw(`  <span class="hi" style="letter-spacing:2px">${code}</span>`);
+  }
+  function resolvePendingCrack(typed){
+    const pc = session.pendingCrack; session.pendingCrack = null;
+    const info = findHost(session.connectedIp);
+    const prog = getProgress(session.connectedIp);
+    const late = Date.now() > pc.deadline;
+    if (!late && typed.trim().toUpperCase()===pc.code){
+      prog.cracked.push(pc.port);
+      traceGain(info.node.security*2);
+      print(`ERİŞİM SAĞLANDI — port ${pc.port} kırıldı.`,'hi');
+      unlockAchievement('first_crack');
+    } else {
+      traceGain(info.node.security*(late?9:12));
+      print(late?'SÜRE DOLDU.':'DİZİ HATALI.','bad');
+    }
+    updateTopbar(); save();
+  }
+
+  // ---------- Breach: firewall (multi-stage, gateway) ----------
+  function cmdFirewall(arg){
+    const info = requireConnection(); if (!info) return;
+    const { node, company } = info;
+    if (!node.isGateway){ print('Bu bir GATEWAY değil. "crack <port>" kullan.','warn'); return; }
+    const port = parseInt(arg,10);
+    if (port !== 9999){ print('Gateway portu 9999.','warn'); return; }
+    const prog = getProgress(session.connectedIp);
+    if (prog.cracked.includes(9999)){ print('Bu gateway zaten kırılmış.','dim'); return; }
+    const stageCount = 3;
+    const len = Math.min(14, 5+Math.floor(node.security*0.8));
+    const codes = Array.from({length:stageCount}, ()=>genCode(len));
+    let totalTime = 34 - state.crackerLvl*2.5 - node.security*0.7 + (state.faction==='whitehat'?3:0);
+    totalTime = Math.max(15, Math.round(totalTime));
+    session.pendingFirewall = { companySlug: company.slug, codes, stage:0, deadline: Date.now()+totalTime*1000 };
+    blank(); print(`ÇOK KATMANLI FIREWALL — ${company.name}`,'warn');
+    print(`${stageCount} aşamalı breach. Toplam süre: ${totalTime}sn. Her aşamayı sırayla yaz:`,'info');
+    printRaw(`  Aşama 1/3: <span class="hi" style="letter-spacing:2px">${codes[0]}</span>`);
+  }
+  function resolvePendingFirewall(typed){
+    const pf = session.pendingFirewall;
+    const info = findHost(session.connectedIp);
+    if (Date.now() > pf.deadline){
+      session.pendingFirewall = null;
+      traceGain(info.node.security*14);
+      print('SÜRE DOLDU — firewall breach başarısız. Baştan denemelisin.','bad');
+      updateTopbar(); save(); return;
+    }
+    if (typed.trim().toUpperCase() !== pf.codes[pf.stage]){
+      session.pendingFirewall = null;
+      traceGain(info.node.security*14);
+      print(`AŞAMA ${pf.stage+1} HATALI — firewall breach başarısız.`,'bad');
+      updateTopbar(); save(); return;
+    }
+    pf.stage++;
+    if (pf.stage >= pf.codes.length){
+      session.pendingFirewall = null;
+      getProgress(session.connectedIp).cracked.push(9999);
+      traceGain(info.node.security*3);
+      print('TÜM AŞAMALAR TAMAMLANDI — GATEWAY KIRILDI.','hi');
+      print('İç ağ artık erişilebilir. "netmap <şirket>" ile node listesini gör.','dim');
+      unlockAchievement('first_gateway');
+      updateTopbar(); save();
+    } else {
+      printRaw(`  Aşama ${pf.stage+1}/3: <span class="hi" style="letter-spacing:2px">${pf.codes[pf.stage]}</span>`);
+    }
+  }
+
+  // ---------- Files ----------
+  function visibleFile(node, prog, name){
+    const f = node.files.find(x=>x.name===name);
+    if (!f) return null;
+    if (!prog.cracked.includes(f.gatePort)) return null;
+    return f;
+  }
+  function cmdLs(){
+    const info = requireConnection(); if (!info) return;
+    const { node } = info;
+    if (node.isGateway){ print('Gateway sunucularında dosya bulunmaz.','dim'); return; }
+    const prog = getProgress(session.connectedIp);
+    const visible = node.files.filter(f=>prog.cracked.includes(f.gatePort));
+    if (visible.length===0){ print('Erişilebilir dosya yok. İlgili portu kır.','dim'); return; }
+    visible.forEach(f=>{
+      const status = prog.downloaded.includes(f.name) ? '[✓ indirildi] ' : (f.isVault ? '[VAULT] ' : '');
+      print(`  ${status}${f.name}   (~${f.value} kredi)  [port ${f.gatePort}]`, prog.downloaded.includes(f.name)?'dim':(f.isVault?'gold':''));
+    });
+  }
+  function cmdCat(arg){
+    const info = requireConnection(); if (!info) return;
+    const { node } = info;
+    if (!arg){ print('Kullanım: cat <dosya>','warn'); return; }
+    const prog = getProgress(session.connectedIp);
+    const f = visibleFile(node, prog, arg);
+    if (!f){ print('Dosya bulunamadı ya da erişimin yok.','warn'); return; }
+    blank(); print(`--- ${f.name} ---`,'info');
+    if (f.isVault){ print('VAULT dosyası — indirmek için "inject" syntax bulmacasını çözmen gerekiyor.','gold'); }
+    else if (f.isPassFile){ print('Zayıf saklanmış erişim anahtarları tespit edildi. Bu sunuçtaki sonraki breach süren uzayacak.','hi'); session.passReduction = true; }
+    else {
+      const flavors = ['Rutin operasyonel veri, görünürde önemli bir şey yok.','İç yazışmalar ve tarih damgaları içeriyor.','Şifrelenmemiş kayıtlar.','Eski bir proje için teknik notlar.','Müşteri iletişim bilgileri.'];
+      print(flavors[Math.floor(Math.random()*flavors.length)]);
+    }
+    traceGain(1);
+  }
+  function cmdDownload(arg){
+    const info = requireConnection(); if (!info) return;
+    const { node, company } = info;
+    if (!arg){ print('Kullanım: download <dosya>','warn'); return; }
+    const prog = getProgress(session.connectedIp);
+    const f = visibleFile(node, prog, arg);
+    if (!f){ print('Dosya bulunamadı ya da erişimin yok.','warn'); return; }
+    if (prog.downloaded.includes(f.name)){ print('Bu dosya zaten indirildi.','dim'); return; }
+    if (f.isVault){ print('Bu bir VAULT dosyası. Önce "inject" ile syntax bulmacasını çöz.','warn'); return; }
+    prog.downloaded.push(f.name);
+    state.inventory.push({ name: f.name, value: f.value, from: company.name });
+    traceGain(node.security*2.5);
+    print(`İndirildi -> envantere eklendi: ${f.name}`,'hi');
+    unlockAchievement('first_download');
+    checkMission(session.connectedIp, f.name);
+    updateTopbar(); save();
+  }
+
+  // ---------- Inject (vault syntax puzzle) ----------
+  const injectTokens = ['NULL_KEY','AUTH::SKIP','OVERRIDE_TRUE','SYNC_END','TOKEN_ECHO','GATE_RESET','FLAG_CLEAR','LOOP_BREAK'];
+  function cmdInjectStart(arg){
+    const info = requireConnection(); if (!info) return;
+    const { node } = info;
+    if (!arg){ print('Kullanım: inject <dosya adı> ile başlat (bulmaca gösterilecek)','warn'); return; }
+    const prog = getProgress(session.connectedIp);
+    const f = node.files.find(x=>x.name===arg && x.isVault);
+    if (!f){ print('Bu isimde erişilebilir bir vault dosyası yok.','warn'); return; }
+    if (!prog.cracked.includes(f.gatePort)){ print('Önce bu dosyanın bağlı olduğu portu kır.','warn'); return; }
+    const seq = shuffled(Math.random, injectTokens).slice(0,4);
+    let revealed = 0;
+    if (state.decryptors>0){ state.decryptors--; revealed=1; print('Dekriptör kullanıldı: 1. token otomatik açığa çıktı.','info'); }
+    session.pendingInject = { fileName: f.name, seq, attemptsLeft: 3 };
+    blank(); print('SYNTAX BREACH — doğru sırayı bul.','warn');
+    print('Mevcut tokenlar (sırasız): ' + shuffled(Math.random, seq).join('  '), 'info');
+    if (revealed) print(`İpucu: dizinin ilk tokenı -> ${seq[0]}`, 'hi');
+    print('Doğru sırayı gir: inject_submit TOKEN TOKEN TOKEN TOKEN', 'dim');
+  }
+  function cmdInjectSubmit(rawArgs){
+    if (!session.pendingInject){ print('Aktif bir inject bulmacası yok. Önce "inject <dosya>" ile başlat.','warn'); return; }
+    const pi = session.pendingInject;
+    const info = findHost(session.connectedIp);
+    const given = rawArgs.trim().split(/\s+/).map(s=>s.toUpperCase());
+    const correct = pi.seq.map(s=>s.toUpperCase());
+    if (given.length===correct.length && given.every((t,i)=>t===correct[i])){
+      session.pendingInject = null;
+      const node = info.node;
+      const prog = getProgress(session.connectedIp);
+      const f = node.files.find(x=>x.name===pi.fileName);
+      prog.downloaded.push(f.name);
+      state.inventory.push({ name: f.name, value: Math.round(f.value*1.6), from: info.company.name });
+      traceGain(node.security*3);
+      print(`SYNTAX ÇÖZÜLDÜ — ${f.name} envantere eklendi (vault bonusu ile).`,'hi');
+      unlockAchievement('first_vault');
+      checkMission(session.connectedIp, f.name);
+      updateTopbar(); save();
+    } else {
+      pi.attemptsLeft--;
+      traceGain(info.node.security*6);
+      if (pi.attemptsLeft<=0){
+        session.pendingInject = null;
+        print('Sıra yanlış. Deneme hakkın bitti — vault kilitlendi (IDS uyarıldı).','bad');
+      } else {
+        print(`Sıra yanlış. Kalan deneme: ${pi.attemptsLeft}`,'bad');
+      }
+      updateTopbar(); save();
+    }
+  }
+
+  // ---------- Proxy / routing puzzle ----------
+  function cmdProxyList(){
+    if (state.ownedProxies.length===0){ print('Hiç proxy sunucun yok. Karaborsadan satın al.','dim'); return; }
+    state.ownedProxies.forEach((p,i)=> print(`  [${i+1}] ${p}  ${session.routeChain.includes(p)?'(zincirde)':''}`));
+  }
+  function cmdRoute(arg){
+    const parts = arg.split(/\s+/);
+    const sub = parts[0];
+    if (sub==='status'){
+      print(`Zincir: ${session.routeChain.length? session.routeChain.join(' -> ') : '(boş)'}`);
+      print(`İz sürme çarpanı: x${traceMultiplier().toFixed(2)}`);
+      return;
+    }
+    if (sub==='clear'){ session.routeChain=[]; print('Proxy zinciri temizlendi.','dim'); updateTopbar(); return; }
+    if (sub==='add'){
+      const name = parts.slice(1).join(' ');
+      if (!name){ print('Kullanım: route add <proxy adı>','warn'); return; }
+      const owned = state.ownedProxies.find(p=>p.toLowerCase().includes(name.toLowerCase()));
+      if (!owned){ print('Bu proxy sana ait değil. "proxy list" veya "blackmarket".','warn'); return; }
+      if (session.routeChain.includes(owned)){ print('Bu proxy zaten zincirde.','dim'); return; }
+      if (session.routeChain.length>=5){ print('Zincir maksimum uzunlukta (5).','warn'); return; }
+      startRoutingPuzzle(owned);
+      return;
+    }
+    print('Kullanım: route add <proxy> | route status | route clear','warn');
+  }
+  function startRoutingPuzzle(proxyName){
+    const nodes = ['A','B','C','D','E','F'];
+    const rng = Math.random;
+    const edges = {};
+    nodes.forEach(n=> edges[n]=[]);
+    for (let i=0;i<9;i++){
+      const a = nodes[Math.floor(rng()*nodes.length)];
+      const b = nodes[Math.floor(rng()*nodes.length)];
+      if (a!==b && !edges[a].includes(b)){ edges[a].push(b); edges[b].push(a); }
+    }
+    const start='A', end='F';
+    edges[start].push('X_IN'); // ensure display simplicity, not used
+    session.pendingRoute = { proxyName, edges, start, end, deadline: Date.now()+25000 };
+    blank(); print(`ROUTING BULMACASI — ${proxyName} üzerinden güvenli yol kur`,'warn');
+    print(`Başlangıç: ${start}   Hedef: ${end}   (25 saniye)`,'info');
+    nodes.forEach(n=>{
+      const conns = edges[n].filter(x=>nodes.includes(x));
+      print(`  ${n} <-> ${conns.join(', ')||'(bağlantı yok)'}`);
+    });
+    print('Yol gir: path A-C-F  (A düğümünden F düğümüne bağlı düğümler üzerinden)','dim');
+  }
+  function resolvePendingRoute(typed){
+    const pr = session.pendingRoute; session.pendingRoute = null;
+    if (Date.now() > pr.deadline){ print('Süre doldu — routing başarısız.','bad'); return; }
+    const seq = typed.trim().toUpperCase().split('-');
+    let ok = seq.length>=2 && seq[0]===pr.start && seq[seq.length-1]===pr.end;
+    if (ok){
+      for (let i=0;i<seq.length-1;i++){
+        if (!pr.edges[seq[i]] || !pr.edges[seq[i]].includes(seq[i+1])){ ok=false; break; }
+      }
+    }
+    if (ok){
+      session.routeChain.push(pr.proxyName);
+      print(`Yol doğrulandı — ${pr.proxyName} zincire eklendi.`,'hi');
+      if (session.routeChain.length>=5) unlockAchievement('route_max');
+      updateTopbar(); save();
+    } else {
+      print('Geçersiz yol — routing başarısız.','bad');
+    }
+  }
+
+  // ---------- Black market ----------
+  function cmdBlackmarket(){
+    blank(); print('KARABORSA','info');
+    print(`  [cracker]   Cracker Modülü Yükseltmesi   Lv.${state.crackerLvl}   fiyat: ${(state.crackerLvl+1)*250}`);
+    print(`  [proxy]     Kiralık Proxy Sunucu         sahip: ${state.ownedProxies.length}   fiyat: ${300*(state.ownedProxies.length+1)}`);
+    print(`  [decryptor] Vault Dekriptörü (tek kullanımlık)  sahip: ${state.decryptors}   fiyat: 350`);
+    print(`  [fence]     Veri Simsarı Bağlantısı      Lv.${state.fenceLvl}   fiyat: ${(state.fenceLvl+1)*400}`);
+    print('Kullanım: buy <item>   |   sell <dosya>','dim');
+  }
+  function cmdBuy(item){
+    if (item==='cracker'){
+      const cost=(state.crackerLvl+1)*250;
+      if (state.credits<cost){ print('Yetersiz kredi.','warn'); return; }
+      state.credits-=cost; state.crackerLvl++;
+      print(`Cracker yükseltildi -> Lv.${state.crackerLvl}`,'hi');
+    } else if (item==='proxy'){
+      const cost=300*(state.ownedProxies.length+1);
+      if (state.credits<cost){ print('Yetersiz kredi.','warn'); return; }
+      state.credits-=cost;
+      const codename = `PRX-${state.ownedProxies.length+1} (${pick(seededRand('proxy'+Date.now()+Math.random()), proxyCityNames)})`;
+      state.ownedProxies.push(codename);
+      print(`Yeni proxy kiralandı: ${codename}`,'hi');
+      if (state.ownedProxies.length>=3) unlockAchievement('proxy_3');
+    } else if (item==='decryptor'){
+      if (state.credits<350){ print('Yetersiz kredi.','warn'); return; }
+      state.credits-=350; state.decryptors++;
+      print(`Dekriptör satın alındı. Envanterde: ${state.decryptors}`,'hi');
+    } else if (item==='fence'){
+      const cost=(state.fenceLvl+1)*400;
+      if (state.credits<cost){ print('Yetersiz kredi.','warn'); return; }
+      state.credits-=cost; state.fenceLvl++;
+      print(`Veri simsarı bağlantısı yükseltildi -> Lv.${state.fenceLvl}`,'hi');
+    } else {
+      print('Bilinmeyen ürün. "blackmarket" ile listeyi gör.','warn'); return;
+    }
+    updateTopbar(); save();
+  }
+  function cmdSell(arg){
+    if (!arg){ print('Kullanım: sell <dosya>','warn'); return; }
+    const idx = state.inventory.findIndex(f=>f.name===arg);
+    if (idx===-1){ print('Bu dosya envanterinde yok.','warn'); return; }
+    const f = state.inventory[idx];
+    let mult = 1 + state.fenceLvl*0.2;
+    if (state.faction==='syndicate') mult *= 1.2;
+    const price = Math.round(f.value*mult);
+    state.credits += price;
+    addEarnings(price);
+    state.inventory.splice(idx,1);
+    print(`Satıldı: ${f.name} (+${price} kredi)`,'hi');
+    updateTopbar(); save();
+  }
+  function cmdInventory(){
+    if (state.inventory.length===0){ print('Envanterin boş.','dim'); return; }
+    state.inventory.forEach(f=> print(`  ${f.name}   ~${f.value} kredi   [${f.from}]`));
+  }
+
+  // ---------- Factions ----------
+  function cmdFactions(){
+    blank(); print('FRAKSİYONLAR','info');
+    FACTIONS.forEach(f=> print(`  ${f.name.padEnd(22)} ${f.desc}   itibar: ${state.rep[f.id]} (${repTier(state.rep[f.id])})`, state.faction===f.id?'hi':''));
+    print('"join <ad>" ile katıl.','dim');
+  }
+  function cmdJoin(arg){
+    if (!arg){ print('Kullanım: join <fraksiyon adı>','warn'); return; }
+    const f = FACTIONS.find(x=>x.name.toLowerCase().includes(arg.toLowerCase()) || x.id===arg.toLowerCase());
+    if (!f){ print('Fraksiyon bulunamadı.','warn'); return; }
+    state.faction = f.id;
+    print(`Katıldın: ${f.name}. ${f.desc}`,'hi');
+    unlockAchievement('first_faction');
+    updateTopbar(); save();
+  }
+  function cmdRep(){
+    FACTIONS.forEach(f=> print(`  ${f.name.padEnd(22)} ${state.rep[f.id]} puan  (${repTier(state.rep[f.id])})`));
+  }
+
+  // ---------- Missions ----------
+  function cmdMissions(){
+    if (state.missions.length===0){
+      for (let i=0;i<3;i++){
+        let region, city, co, node;
+        let tries=0;
+        do {
+          region = pick(Math.random, WORLD.regions);
+          city = pick(Math.random, region.cities);
+          co = pick(Math.random, city.companies);
+          node = pick(Math.random, co.nodes.filter(n=>!n.isGateway));
+          tries++;
+        } while (!node && tries<20);
+        if (!node) continue;
+        const targetFile = pick(Math.random, node.files);
+        const faction = pick(Math.random, FACTIONS);
+        state.missions.push({
+          id: i+1,
+          hostname: node.hostname,
+          companyName: co.name,
+          targetFile: targetFile.name,
+          reward: Math.round(targetFile.value*1.4)+100,
+          factionId: faction.id
+        });
+      }
+      save();
+    }
+    blank(); print('AKTİF KONTRATLAR','info');
+    state.missions.forEach(m=>{
+      const fac = FACTIONS.find(f=>f.id===m.factionId);
+      print(`  [${m.id}] ${m.companyName} -> ${m.hostname}  |  dosya: ${m.targetFile}  |  ödül: ${m.reward}  |  müşteri: ${fac.name}`);
+    });
+    if (state.activeMission) print(`Aktif görev: #${state.activeMission.id}`,'hi');
+    print('"accept <id>"','dim');
+  }
+  function cmdAccept(arg){
+    const id = parseInt(arg,10);
+    const m = state.missions.find(x=>x.id===id);
+    if (!m){ print('Böyle bir kontrat yok.','warn'); return; }
+    state.activeMission = m;
+    print(`Kontrat kabul edildi: ${m.hostname} üzerinde "${m.targetFile}" indir.`,'hi');
+    save();
+  }
+  function checkMission(hostname, fileName){
+    if (state.activeMission && state.activeMission.hostname===hostname && state.activeMission.targetFile===fileName){
+      const m = state.activeMission;
+      let reward = m.reward;
+      if (state.faction===m.factionId) reward = Math.round(reward*1.15);
+      state.credits += reward;
+      addEarnings(reward);
+      state.rep[m.factionId] = (state.rep[m.factionId]||0) + 30;
+      const fac = FACTIONS.find(f=>f.id===m.factionId);
+      if (fac && fac.rival) state.rep[fac.rival] = Math.max(0,(state.rep[fac.rival]||0)-10);
+      print(`KONTRAT TAMAMLANDI! +${reward} kredi, +30 itibar (${fac.name})`,'info');
+      unlockAchievement('first_mission');
+      state.missions = state.missions.filter(x=>x.id!==m.id);
+      state.activeMission = null;
+    }
+  }
+
+  function cmdStats(){
+    blank(); print('İSTATİSTİKLER','info');
+    print(`  Kredi: ${state.credits}`);
+    print(`  Cracker Lv: ${state.crackerLvl}   Dekriptör: ${state.decryptors}   Fence Lv: ${state.fenceLvl}`);
+    print(`  Proxy sayısı: ${state.ownedProxies.length}   Zincir uzunluğu: ${session.routeChain.length}`);
+    print(`  Keşfedilen ağ sayısı: ${Object.keys(state.progress).length}`);
+    print(`  Fraksiyon: ${state.faction ? FACTIONS.find(f=>f.id===state.faction).name : 'yok'}`);
+    const gotAch = ACHIEVEMENTS.filter(a=>state.achievements && state.achievements[a.id]).length;
+    print(`  Rütbe: ${rankTitle(state.totalEarned||0)}  (toplam kazanç: ${state.totalEarned||0})   Başarım: ${gotAch}/${ACHIEVEMENTS.length}`,'gold');
+  }
+  function cmdHistory(){
+    if (state.history.length===0){ print('Henüz hiçbir şey keşfedilmedi.','dim'); return; }
+    state.history.slice(-25).forEach(h=> print(`  ${h}`));
+  }
+  function cmdClear(){ out.innerHTML=''; }
+
+  // ---------- Idle trace decay ----------
+  setInterval(()=>{
+    if (session.connectedIp && session.trace>0 && !session.pendingCrack && !session.pendingFirewall){
+      session.trace = Math.max(0, session.trace - (0.4+state.crackerLvl*0.05));
+      updateTopbar();
+    }
+  }, 2000);
+
+  // ---------- Rütbe / Prestij ----------
+  const RANKS = [
+    [0,     'Script Kiddie'],
+    [800,   'Çırak Netrunner'],
+    [2000,  'Netrunner'],
+    [5000,  'Kıdemli Netrunner'],
+    [10000, 'Gölge Operatör'],
+    [20000, 'Elit Hacker'],
+    [40000, 'Efsanevi Netrunner'],
+    [80000, 'Sistem Hayaleti']
+  ];
+  function rankTitle(v){ let t=RANKS[0][1]; for (const [th,name] of RANKS) if (v>=th) t=name; return t; }
+  function rankIndex(v){ let idx=0; RANKS.forEach(([th],i)=>{ if (v>=th) idx=i; }); return idx; }
+
+  // ---------- Başarımlar ----------
+  const ACHIEVEMENTS = [
+    {id:'first_crack',    name:'İlk Kırılma',        desc:'İlk portunu kırdın.'},
+    {id:'first_gateway',  name:'Kale Düştü',         desc:'İlk gateway/firewall breach\'ini tamamladın.'},
+    {id:'first_download', name:'Veri Avcısı',        desc:'İlk dosyayı indirdin.'},
+    {id:'first_vault',    name:'Kasa Kırıcı',        desc:'İlk vault syntax bulmacasını çözdün.'},
+    {id:'first_mission',  name:'Sözleşme Tamamlandı',desc:'İlk kontratını tamamladın.'},
+    {id:'first_faction',  name:'Sadakat Yemini',     desc:'Bir fraksiyona katıldın.'},
+    {id:'credits_1000',   name:'İlk Bin',            desc:'Toplamda 1.000 kredi kazandın.'},
+    {id:'credits_10000',  name:'Beş Haneli Hesap',   desc:'Toplamda 10.000 kredi kazandın.'},
+    {id:'proxy_3',        name:'Hayalet Zincir',     desc:'3 proxy sunucuya sahip oldun.'},
+    {id:'route_max',      name:'Tam Anonimlik',      desc:'5 hoplu bir proxy zinciri kurdun.'}
+  ];
+
+  function showToast(opts){
+    const wrap = document.createElement('div'); wrap.className = 'achToast';
+    if (opts.color){ wrap.style.borderColor = opts.color; wrap.style.color = opts.color; wrap.style.boxShadow = `0 0 20px ${opts.color}55`; }
+    const head = document.createElement('div'); head.className = 'achToastHead';
+    head.appendChild(makeIconCanvas(opts.icon||'star', 22));
+    const t = document.createElement('span'); t.textContent = opts.title;
+    head.appendChild(t); wrap.appendChild(head);
+    const m = document.createElement('div'); m.className = 'achToastMsg'; m.textContent = opts.msg;
+    wrap.appendChild(m);
+    document.body.appendChild(wrap);
+    setTimeout(()=> wrap.remove(), 4200);
+  }
+
+  function addEarnings(amount){
+    if (!state.totalEarned) state.totalEarned = 0;
+    const before = rankIndex(state.totalEarned);
+    state.totalEarned += amount;
+    const after = rankIndex(state.totalEarned);
+    if (after > before){
+      const title = rankTitle(state.totalEarned);
+      showToast({title:'RÜTBE ATLANDI', msg: title, icon:'chevron', color:'#ffd76a'});
+      print(`✦ RÜTBE ATLANDI: ${title}`,'gold');
+    }
+    if (state.totalEarned >= 1000) unlockAchievement('credits_1000');
+    if (state.totalEarned >= 10000) unlockAchievement('credits_10000');
+  }
+
+  function unlockAchievement(id){
+    if (!state.achievements) state.achievements = {};
+    if (state.achievements[id]) return;
+    state.achievements[id] = true;
+    const a = ACHIEVEMENTS.find(x=>x.id===id);
+    if (!a) return;
+    showToast({title:'BAŞARIM AÇILDI', msg: a.name, icon:'trophy', color:'#ffd76a'});
+    print(`🏆 BAŞARIM: ${a.name} — ${a.desc}`,'gold');
+    save();
+  }
+
+  function cmdAchievements(){
+    blank(); print('BAŞARIMLAR','info');
+    ACHIEVEMENTS.forEach(a=>{
+      const got = !!(state.achievements && state.achievements[a.id]);
+      print(`  ${got?'[✓]':'[ ]'} ${a.name.padEnd(22)} ${a.desc}`, got?'gold':'dim');
+    });
+    const total = ACHIEVEMENTS.length;
+    const got = ACHIEVEMENTS.filter(a=>state.achievements && state.achievements[a.id]).length;
+    print(`İlerleme: ${got}/${total}   |   Rütbe: ${rankTitle(state.totalEarned||0)}`,'hi');
+  }
+
+  // ---------- Makrolar ----------
+  const CATEGORIES = [
+    {id:'nav',     name:'Navigasyon',      icon:'globe'},
+    {id:'conn',    name:'Bağlantı',        icon:'plug'},
+    {id:'breach',  name:'İhlal',           icon:'lock'},
+    {id:'file',    name:'Dosya',           icon:'file'},
+    {id:'proxy',   name:'Proxy/Gizlilik',  icon:'mask'},
+    {id:'market',  name:'Karaborsa',       icon:'cart'},
+    {id:'faction', name:'Fraksiyon',       icon:'flag'},
+    {id:'mission', name:'Görev',           icon:'target'},
+    {id:'sys',     name:'Sistem',          icon:'terminal'},
+    {id:'custom',  name:'Özel',            icon:'star'}
+  ];
+
+  function drawIcon(ctx, type, size){
+    ctx.save();
+    ctx.strokeStyle = '#33ff5a'; ctx.fillStyle = '#33ff5a';
+    ctx.lineWidth = Math.max(1.2, size*0.06);
+    ctx.shadowColor = '#33ff5a'; ctx.shadowBlur = 4;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const c = size/2;
+    switch(type){
+      case 'globe':
+        ctx.beginPath(); ctx.arc(c,c,size*0.36,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(c,c,size*0.36,size*0.15,0,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c,c-size*0.36); ctx.lineTo(c,c+size*0.36); ctx.stroke();
+        break;
+      case 'plug':
+        ctx.strokeRect(c-size*0.18,c-size*0.06,size*0.36,size*0.28);
+        ctx.beginPath(); ctx.moveTo(c-size*0.09,c-size*0.06); ctx.lineTo(c-size*0.09,c-size*0.24); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c+size*0.09,c-size*0.06); ctx.lineTo(c+size*0.09,c-size*0.24); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c,c+size*0.22); ctx.lineTo(c,c+size*0.36); ctx.stroke();
+        break;
+      case 'lock':
+        ctx.strokeRect(c-size*0.2,c-size*0.02,size*0.4,size*0.3);
+        ctx.beginPath(); ctx.arc(c,c-size*0.08,size*0.16,Math.PI,Math.PI*1.85); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.05,c+size*0.06); ctx.lineTo(c+size*0.05,c+size*0.16); ctx.lineTo(c-size*0.02,c+size*0.24); ctx.stroke();
+        break;
+      case 'file':
+        ctx.beginPath();
+        ctx.moveTo(c-size*0.2,c-size*0.32); ctx.lineTo(c+size*0.08,c-size*0.32); ctx.lineTo(c+size*0.2,c-size*0.2);
+        ctx.lineTo(c+size*0.2,c+size*0.32); ctx.lineTo(c-size*0.2,c+size*0.32); ctx.closePath(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.1,c-size*0.04); ctx.lineTo(c+size*0.1,c-size*0.04);
+        ctx.moveTo(c-size*0.1,c+size*0.1); ctx.lineTo(c+size*0.1,c+size*0.1); ctx.stroke();
+        break;
+      case 'mask':
+        ctx.beginPath(); ctx.ellipse(c-size*0.15,c,size*0.13,size*0.09,0,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(c+size*0.15,c,size*0.13,size*0.09,0,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.02,c); ctx.lineTo(c+size*0.02,c); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.34,c-size*0.03); ctx.quadraticCurveTo(c-size*0.42,c-size*0.15,c-size*0.3,c-size*0.22); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c+size*0.34,c-size*0.03); ctx.quadraticCurveTo(c+size*0.42,c-size*0.15,c+size*0.3,c-size*0.22); ctx.stroke();
+        break;
+      case 'cart':
+        ctx.strokeRect(c-size*0.22,c-size*0.14,size*0.36,size*0.22);
+        ctx.beginPath(); ctx.moveTo(c-size*0.3,c-size*0.26); ctx.lineTo(c-size*0.22,c-size*0.14); ctx.stroke();
+        ctx.beginPath(); ctx.arc(c-size*0.14,c+size*0.22,size*0.05,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(c+size*0.08,c+size*0.22,size*0.05,0,Math.PI*2); ctx.stroke();
+        break;
+      case 'flag':
+        ctx.beginPath(); ctx.moveTo(c-size*0.2,c-size*0.34); ctx.lineTo(c-size*0.2,c+size*0.34); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.2,c-size*0.3); ctx.lineTo(c+size*0.26,c-size*0.2); ctx.lineTo(c-size*0.2,c-size*0.06); ctx.closePath(); ctx.stroke();
+        break;
+      case 'target':
+        ctx.beginPath(); ctx.arc(c,c,size*0.34,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(c,c,size*0.16,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c,c-size*0.42); ctx.lineTo(c,c+size*0.42); ctx.moveTo(c-size*0.42,c); ctx.lineTo(c+size*0.42,c); ctx.stroke();
+        break;
+      case 'terminal':
+        ctx.strokeRect(c-size*0.32,c-size*0.24,size*0.64,size*0.48);
+        ctx.beginPath(); ctx.moveTo(c-size*0.2,c-size*0.08); ctx.lineTo(c-size*0.06,c); ctx.lineTo(c-size*0.2,c+size*0.08); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c,c+size*0.1); ctx.lineTo(c+size*0.16,c+size*0.1); ctx.stroke();
+        break;
+      case 'star':
+        ctx.beginPath();
+        for(let i=0;i<5;i++){
+          const ang = -Math.PI/2 + i*(Math.PI*2/5);
+          const ang2 = ang + Math.PI/5;
+          const x1 = c+Math.cos(ang)*size*0.36, y1 = c+Math.sin(ang)*size*0.36;
+          const x2 = c+Math.cos(ang2)*size*0.15, y2 = c+Math.sin(ang2)*size*0.15;
+          if (i===0) ctx.moveTo(x1,y1); else ctx.lineTo(x1,y1);
+          ctx.lineTo(x2,y2);
+        }
+        ctx.closePath(); ctx.stroke();
+        break;
+      case 'trophy':
+        ctx.beginPath(); ctx.moveTo(c-size*0.18,c-size*0.3); ctx.lineTo(c+size*0.18,c-size*0.3); ctx.lineTo(c+size*0.14,c+size*0.02);
+        ctx.quadraticCurveTo(c,c+size*0.14,c-size*0.14,c+size*0.02); ctx.closePath(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.18,c-size*0.26); ctx.quadraticCurveTo(c-size*0.38,c-size*0.26,c-size*0.3,c-size*0.06); ctx.quadraticCurveTo(c-size*0.26,c+size*0.02,c-size*0.14,c+size*0.02); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c+size*0.18,c-size*0.26); ctx.quadraticCurveTo(c+size*0.38,c-size*0.26,c+size*0.3,c-size*0.06); ctx.quadraticCurveTo(c+size*0.26,c+size*0.02,c+size*0.14,c+size*0.02); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c,c+size*0.14); ctx.lineTo(c,c+size*0.26); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.16,c+size*0.34); ctx.lineTo(c+size*0.16,c+size*0.34); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.1,c+size*0.26); ctx.lineTo(c+size*0.1,c+size*0.26); ctx.stroke();
+        break;
+      case 'chevron':
+        ctx.beginPath(); ctx.moveTo(c-size*0.28,c-size*0.02); ctx.lineTo(c,c-size*0.28); ctx.lineTo(c+size*0.28,c-size*0.02); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c-size*0.28,c+size*0.26); ctx.lineTo(c,c); ctx.lineTo(c+size*0.28,c+size*0.26); ctx.stroke();
+        break;
+    }
+    ctx.restore();
+  }
+  const iconCache = new Map();
+  function makeIconCanvas(type, size){
+    const key = type + '_' + size;
+    let url = iconCache.get(key);
+    if (!url){
+      const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+      drawIcon(cv.getContext('2d'), type, size);
+      url = cv.toDataURL();
+      iconCache.set(key, url);
+    }
+    const img = document.createElement('img');
+    img.src = url; img.width = size; img.height = size;
+    img.style.width = size+'px'; img.style.height = size+'px'; img.style.display = 'inline-block';
+    return img;
+  }
+
+  function ensureMacroState(){
+    if (!state.macros) state.macros = [];
+    if (!state.macroSeq) state.macroSeq = 1;
+  }
+
+  let macroFormCategory = 'custom';
+  let macroEditingId = null;
+  const macroOverlayEl = document.getElementById('macroOverlay');
+
+  function openMacroPanel(){
+    ensureMacroState();
+    document.getElementById('macroForm').classList.remove('show');
+    renderMacroPanel();
+    macroOverlayEl.classList.add('show');
+  }
+  function closeMacroPanel(){
+    macroOverlayEl.classList.remove('show');
+    input.focus();
+  }
+
+  function selectMacroCat(id){
+    macroFormCategory = id;
+    renderCatGrid(document.getElementById('macroCatGrid'), macroFormCategory, selectMacroCat);
+  }
+  function renderCatGrid(container, selected, onSelect){
+    container.innerHTML = '';
+    CATEGORIES.forEach(cat=>{
+      const btn = document.createElement('div');
+      btn.className = 'catBtn' + (selected===cat.id ? ' sel' : '');
+      btn.appendChild(makeIconCanvas(cat.icon, 22));
+      const lbl = document.createElement('div'); lbl.textContent = cat.name;
+      btn.appendChild(lbl);
+      btn.addEventListener('click', ()=> onSelect(cat.id));
+      container.appendChild(btn);
+    });
+  }
+
+  function toggleMacroForm(){
+    const f = document.getElementById('macroForm');
+    const willShow = !f.classList.contains('show');
+    f.classList.toggle('show', willShow);
+    if (willShow){
+      macroEditingId = null;
+      document.getElementById('macroSaveBtn').textContent = 'Kaydet';
+      document.getElementById('macroNameInput').value = '';
+      document.getElementById('macroCmdInput').value = '';
+      macroFormCategory = 'custom';
+      renderCatGrid(document.getElementById('macroCatGrid'), macroFormCategory, selectMacroCat);
+      document.getElementById('macroNameInput').focus();
+    }
+  }
+
+  function openMacroFormForEdit(m){
+    macroEditingId = m.id;
+    macroFormCategory = m.cat;
+    document.getElementById('macroSaveBtn').textContent = 'Güncelle';
+    document.getElementById('macroNameInput').value = m.name;
+    document.getElementById('macroCmdInput').value = m.cmd;
+    renderCatGrid(document.getElementById('macroCatGrid'), macroFormCategory, selectMacroCat);
+    document.getElementById('macroForm').classList.add('show');
+    document.getElementById('macroNameInput').focus();
+  }
+
+  function saveNewMacro(){
+    const nameEl = document.getElementById('macroNameInput');
+    const cmdEl = document.getElementById('macroCmdInput');
+    const name = nameEl.value.trim();
+    const cmd = cmdEl.value.trim();
+    if (!name){ alert('1. Makro adını gir.'); nameEl.focus(); return; }
+    if (!cmd){ alert('2. Basınca çalışacak komutu gir.'); cmdEl.focus(); return; }
+    ensureMacroState();
+    if (macroEditingId!=null){
+      const m = state.macros.find(x=>x.id===macroEditingId);
+      if (m){ m.name=name; m.cmd=cmd; m.cat=macroFormCategory||'custom'; }
+      macroEditingId = null;
+    } else {
+      state.macros.push({ id: state.macroSeq++, name, cmd, cat: macroFormCategory || 'custom' });
+    }
+    save();
+    document.getElementById('macroForm').classList.remove('show');
+    document.getElementById('macroSaveBtn').textContent = 'Kaydet';
+    renderMacroPanel();
+  }
+
+  function deleteMacro(id, name){
+    if (!confirm(`"${name}" makrosunu silmek istiyor musun?`)) return;
+    state.macros = state.macros.filter(x=>x.id!==id);
+    save();
+    renderMacroPanel();
+  }
+
+  function renderMacroPanel(){
+    const listEl = document.getElementById('macroListContainer');
+    listEl.innerHTML = '';
+    CATEGORIES.forEach(cat=>{
+      const sec = document.createElement('div'); sec.className = 'catSection';
+      const head = document.createElement('div'); head.className = 'catSectionHead';
+      head.appendChild(makeIconCanvas(cat.icon, 20));
+      const span = document.createElement('span'); span.textContent = cat.name.toUpperCase();
+      head.appendChild(span);
+      sec.appendChild(head);
+      const chips = document.createElement('div'); chips.className = 'macroChips';
+      const macros = state.macros.filter(m=>m.cat===cat.id);
+      if (macros.length===0){
+        const e = document.createElement('div'); e.className = 'emptyCat'; e.textContent = 'henüz makro yok';
+        chips.appendChild(e);
+      } else {
+        macros.forEach(m=>{
+          const chip = document.createElement('div'); chip.className = 'macroChip';
+          const nm = document.createElement('span'); nm.className = 'mName'; nm.textContent = m.name; nm.title = m.cmd;
+          nm.addEventListener('click', ()=>{ input.value = m.cmd; closeMacroPanel(); });
+          const runBtn = document.createElement('button'); runBtn.className = 'mRun'; runBtn.textContent = '▶'; runBtn.title = 'Hemen çalıştır';
+          runBtn.addEventListener('click', (e)=>{ e.stopPropagation(); closeMacroPanel(); process(m.cmd); });
+          const editBtn = document.createElement('button'); editBtn.className = 'mEdit'; editBtn.textContent = '✎'; editBtn.title = 'Düzenle';
+          editBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openMacroFormForEdit(m); });
+          const delBtn = document.createElement('button'); delBtn.className = 'mDel'; delBtn.textContent = '✕'; delBtn.title = 'Sil';
+          delBtn.addEventListener('click', (e)=>{ e.stopPropagation(); deleteMacro(m.id, m.name); });
+          chip.appendChild(nm); chip.appendChild(runBtn); chip.appendChild(editBtn); chip.appendChild(delBtn);
+          chips.appendChild(chip);
+        });
+      }
+      sec.appendChild(chips);
+      listEl.appendChild(sec);
+    });
+  }
+
+  document.getElementById('macroBtn').addEventListener('click', openMacroPanel);
+  document.getElementById('macroCloseBtn').addEventListener('click', closeMacroPanel);
+  macroOverlayEl.addEventListener('click', (e)=>{ if (e.target===macroOverlayEl) closeMacroPanel(); });
+  document.getElementById('macroAddBtn').addEventListener('click', toggleMacroForm);
+  document.getElementById('macroCancelBtn').addEventListener('click', ()=> document.getElementById('macroForm').classList.remove('show'));
+  document.getElementById('macroSaveBtn').addEventListener('click', saveNewMacro);
+  document.addEventListener('keydown', (e)=>{ if (e.key==='Escape' && macroOverlayEl.classList.contains('show')) closeMacroPanel(); });
+
+  // ---------- Dispatch ----------
+  function process(raw){
+    const trimmed = raw.trim();
+    if (trimmed.length===0) return;
+    printRaw(`<span class="dim">${promptEl.textContent}</span> ${escapeHtml(trimmed)}`);
+
+    if (session.pendingCrack){ resolvePendingCrack(trimmed); return; }
+    if (session.pendingFirewall){ resolvePendingFirewall(trimmed); return; }
+    if (session.pendingRoute){ resolvePendingRoute(trimmed); return; }
+
+    const parts = trimmed.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const arg = parts.slice(1).join(' ');
+
+    switch(cmd){
+      case 'help': cmdHelp(); break;
+      case 'clear': cmdClear(); break;
+      case 'whoami': cmdWhoami(); break;
+      case 'ifconfig': cmdIfconfig(); break;
+      case 'whereami': cmdWhereami(); break;
+      case 'worldmap': cmdWorldmap(); break;
+      case 'region': cmdRegion(arg); break;
+      case 'city': cmdCity(arg); break;
+      case 'targets': cmdTargets(); break;
+      case 'netmap': cmdNetmap(arg); break;
+      case 'scan': cmdScan(arg); break;
+      case 'connect': cmdConnect(arg); break;
+      case 'pivot': cmdPivot(arg); break;
+      case 'ports': case 'portscan': cmdPorts(); break;
+      case 'disconnect': cmdDisconnect(); break;
+      case 'crack': cmdCrack(arg); break;
+      case 'firewall': cmdFirewall(arg); break;
+      case 'inject': cmdInjectStart(arg); break;
+      case 'inject_submit': cmdInjectSubmit(arg); break;
+      case 'ls': cmdLs(); break;
+      case 'cat': cmdCat(arg); break;
+      case 'download': cmdDownload(arg); break;
+      case 'proxy': if(parts[1]==='list') cmdProxyList(); else print('Kullanım: proxy list','warn'); break;
+      case 'route': cmdRoute(arg); break;
+      case 'blackmarket': cmdBlackmarket(); break;
+      case 'buy': cmdBuy(arg); break;
+      case 'sell': cmdSell(arg); break;
+      case 'inventory': cmdInventory(); break;
+      case 'factions': cmdFactions(); break;
+      case 'join': cmdJoin(arg); break;
+      case 'rep': cmdRep(); break;
+      case 'missions': cmdMissions(); break;
+      case 'accept': cmdAccept(arg); break;
+      case 'stats': cmdStats(); break;
+      case 'history': cmdHistory(); break;
+      case 'basarimlar': case 'achievements': cmdAchievements(); break;
+      default: print(`Komut bulunamadı: ${cmd}. "help" yaz.`,'warn');
+    }
+  }
+
+  // ---------- Input ----------
+  const cmdLog = []; let histIdx=-1;
+  input.addEventListener('keydown',(e)=>{
+    if (e.key==='Enter'){
+      const val=input.value; input.value='';
+      cmdLog.push(val); histIdx=cmdLog.length;
+      process(val);
+    } else if (e.key==='ArrowUp'){
+      if (histIdx>0){ histIdx--; input.value=cmdLog[histIdx]||''; } e.preventDefault();
+    } else if (e.key==='ArrowDown'){
+      if (histIdx<cmdLog.length-1){ histIdx++; input.value=cmdLog[histIdx]||''; } else { histIdx=cmdLog.length; input.value=''; } e.preventDefault();
+    }
+  });
+  document.addEventListener('click',()=>{ if (document.getElementById('macroOverlay').classList.contains('show')) return; input.focus(); });
+
+  // ---------- Boot ----------
+  async function boot(){
+    WORLD = buildWorld();
+    indexWorld();
+    await load();
+    updateTopbar(); updatePrompt();
+    print('NETRUNNER OS başlatılıyor...','dim');
+    print(`Küresel ağ indekslendi: ${WORLD.regions.length} bölge, ${WORLD.regions.reduce((s,r)=>s+r.cities.length,0)} şehir, ${WORLD.regions.reduce((s,r)=>s+r.cities.reduce((s2,c)=>s2+c.companies.length,0),0)} kurumsal ağ.`,'dim');
+    blank();
+    print('Açık dünya hack simülasyonu — genişletilmiş sürüm.','info');
+    print('"worldmap" ile keşfe başla, "help" ile tüm komutları gör.','hi');
+    blank();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
